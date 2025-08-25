@@ -31,10 +31,10 @@ import (
 
 func main() {
 	r := regexrouter.NewRouter()
-	r.Get("^\\/$", func(w http.ResponseWriter, r *http.Request) {
+	r.Get(`^\/$`, func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("welcome"))
 	})
-	r.Get("^\\/(?P<var1>.*)\\/(?P<var2>.*)\\/path$", func(w http.ResponseWriter, r *http.Request) {
+	r.Get(`^\/(?P<var1>.*)\/(?P<var2>.*)\/path$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte(fmt.Sprintf("%s %s", r.Context().Value("var1"), r.Context().Value("var2"))))
 	})

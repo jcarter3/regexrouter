@@ -2,7 +2,6 @@ package regexrouter
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -81,7 +80,6 @@ func (mx *Mux) Route(pattern string, fn func(Router)) Router {
 	sr := &Mux{}
 	fn(sr)
 
-	fmt.Printf("handler is a %T!\n", sr)
 	// todo: find a way to make this a known type
 	mx.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		unnamed := r.Context().Value("unnamed").([]string)
@@ -123,7 +121,6 @@ func (mx *Mux) Method(method, pattern string, handler http.Handler) {
 	} else {
 		mx.routes.append(r)
 	}
-	fmt.Printf("added route %s, route count: %d\n", pattern, len(mx.routes.rts))
 }
 
 func (mx *Mux) MethodFunc(method, pattern string, handler http.HandlerFunc) {
@@ -181,9 +178,7 @@ func (mx *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		path = requestpath
 	}
 
-	fmt.Printf("path is %s\n", path)
 	for _, route := range mx.routes.rts {
-		fmt.Printf("testing route %s\n", route.regex.String())
 		matches := route.regex.FindStringSubmatch(path)
 		if len(matches) <= 0 {
 			continue
@@ -198,7 +193,6 @@ func (mx *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		fmt.Printf("handler is a %T!\n", handler)
 		varNames := route.varNames
 		if len(route.regex.SubexpNames()) > 1 {
 			varNames = route.regex.SubexpNames()[1:]

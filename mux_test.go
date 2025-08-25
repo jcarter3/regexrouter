@@ -22,27 +22,27 @@ type testCase struct {
 func TestMuxBasic(t *testing.T) {
 	m := NewMux()
 
-	m.Get("^\\/$", func(w http.ResponseWriter, r *http.Request) {
+	m.Get(`^\/$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("ok"))
 	})
-	m.Get("^\\/path$", func(w http.ResponseWriter, r *http.Request) {
+	m.Get(`^\/path$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("get path"))
 	})
-	m.Post("^\\/path$", func(w http.ResponseWriter, r *http.Request) {
+	m.Post(`^\/path$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("post path"))
 	})
-	m.Patch("^\\/path$", func(w http.ResponseWriter, r *http.Request) {
+	m.Patch(`^\/path$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("patch path"))
 	})
-	m.Get("^\\/(?P<var1>.*)\\/(?P<var2>.*)\\/path$", func(w http.ResponseWriter, r *http.Request) {
+	m.Get(`\/(?P<var1>.*)\/(?P<var2>.*)\/path$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte(fmt.Sprintf("%s %s", r.Context().Value("var1"), r.Context().Value("var2"))))
 	})
-	m.HandleFunc("^\\/allmethods$", func(w http.ResponseWriter, r *http.Request) {
+	m.HandleFunc(`^\/allmethods$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("all methods"))
 	})
@@ -109,26 +109,26 @@ func TestMuxBasic(t *testing.T) {
 func TestSubRouters(t *testing.T) {
 	m := NewMux()
 
-	m.Get("^\\/$", func(w http.ResponseWriter, r *http.Request) {
+	m.Get(`^\/$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("ok"))
 	})
-	m.Route("^\\/route1/(.*)$", func(r Router) {
+	m.Route(`^\/route1/(.*)$`, func(r Router) {
 		r.Get("^$", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			w.Write([]byte("ok1"))
 		})
-		r.Get("^foo$", func(w http.ResponseWriter, r *http.Request) {
+		r.Get(`^foo$`, func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			w.Write([]byte("foo1"))
 		})
 	})
-	m.Route("^\\/route2/(.*)$", func(r Router) {
+	m.Route(`^\/route2/(.*)$`, func(r Router) {
 		r.Get("^$", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			w.Write([]byte("ok2"))
 		})
-		r.Get("^foo$", func(w http.ResponseWriter, r *http.Request) {
+		r.Get(`^foo$`, func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			w.Write([]byte("foo2"))
 		})
@@ -188,7 +188,7 @@ func TestMiddlewares(t *testing.T) {
 		})
 	})
 
-	m.Get("^\\/$", returnMWs(t))
+	m.Get(`^\/$`, returnMWs(t))
 
 	m.With(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -200,7 +200,7 @@ func TestMiddlewares(t *testing.T) {
 			r = r.WithContext(context.WithValue(r.Context(), "middlewares", v))
 			next.ServeHTTP(w, r)
 		})
-	}).Get("\\/foo$", returnMWs(t))
+	}).Get(`^\/foo$`, returnMWs(t))
 
 	m.With(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -212,9 +212,9 @@ func TestMiddlewares(t *testing.T) {
 			r = r.WithContext(context.WithValue(r.Context(), "middlewares", v))
 			next.ServeHTTP(w, r)
 		})
-	}).Get("\\/bar$", returnMWs(t))
+	}).Get(`^\/bar$`, returnMWs(t))
 
-	m.Get("^\\/baz$", returnMWs(t))
+	m.Get(`^\/baz$`, returnMWs(t))
 
 	ts := httptest.NewServer(m)
 	defer ts.Close()
@@ -277,7 +277,7 @@ func TestGrouping(t *testing.T) {
 				next.ServeHTTP(w, r)
 			})
 		})
-		r.Get("^\\/foo$", returnMWs(t))
+		r.Get(`^\/foo$`, returnMWs(t))
 	})
 
 	m.Group(func(r Router) {
@@ -292,9 +292,9 @@ func TestGrouping(t *testing.T) {
 				next.ServeHTTP(w, r)
 			})
 		})
-		r.Get("^\\/bar$", returnMWs(t))
+		r.Get(`^\/bar$`, returnMWs(t))
 	})
-	m.Get("^\\/$", returnMWs(t))
+	m.Get(`^\/$`, returnMWs(t))
 	ts := httptest.NewServer(m)
 	defer ts.Close()
 
