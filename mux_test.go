@@ -20,7 +20,7 @@ type testCase struct {
 }
 
 func TestMuxBasic(t *testing.T) {
-	m := NewMux()
+	m := New(nil)
 
 	m.Get(`^\/$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -107,7 +107,7 @@ func TestMuxBasic(t *testing.T) {
 }
 
 func TestSubRouters(t *testing.T) {
-	m := NewMux()
+	m := New(nil)
 
 	m.Get(`^\/$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
@@ -163,7 +163,7 @@ func TestSubRouters(t *testing.T) {
 }
 
 func TestMiddlewares(t *testing.T) {
-	m := NewMux()
+	m := New(nil)
 
 	m.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -251,7 +251,7 @@ func TestMiddlewares(t *testing.T) {
 }
 
 func TestGrouping(t *testing.T) {
-	m := NewMux()
+	m := New(nil)
 
 	m.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -317,6 +317,61 @@ func TestGrouping(t *testing.T) {
 			method:         "GET",
 			expectedStatus: 200,
 			expectedBody:   "1 b",
+		},
+	}
+
+	runTestCases(t, ts, testCases)
+}
+
+func TestOCIDistRouting(t *testing.T) {
+	m := New(nil)
+
+	m.Route(`^/v2/(?P<name>[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*)/manifests/(?P<reference>.*)$`, func(rr Router) {
+		rr.Head("^$", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(200)
+		})
+		rr.Get("^$", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(200)
+			fmt.Fprintf(w, "manifest get: %s %s", r.Context().Value("name"), r.Context().Value("reference"))
+		})
+		rr.Put("^$", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(200)
+			fmt.Fprintf(w, "manifest put: %s %s", r.Context().Value("name"), r.Context().Value("reference"))
+		})
+		rr.Delete("^$", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(200)
+			fmt.Fprintf(w, "manifest delete: %s %s", r.Context().Value("name"), r.Context().Value("reference"))
+		})
+	})
+
+	ts := httptest.NewServer(m)
+	defer ts.Close()
+
+	testCases := []testCase{
+		{
+			name:           "head",
+			path:           "/v2/foo/bar/baz/manifests/tag",
+			method:         "HEAD",
+			expectedStatus: 200,
+			expectedBody:   "",
+		}, {
+			name:           "get",
+			path:           "/v2/foo/manifests/tag",
+			method:         "GET",
+			expectedStatus: 200,
+			expectedBody:   "manifest get: foo tag",
+		}, {
+			name:           "put",
+			path:           "/v2/foo/bar/manifests/tag",
+			method:         "PUT",
+			expectedStatus: 200,
+			expectedBody:   "manifest put: foo/bar tag",
+		}, {
+			name:           "delete",
+			path:           "/v2/foo/bar/baz/manifests/tag",
+			method:         "DELETE",
+			expectedStatus: 200,
+			expectedBody:   "manifest delete: foo/bar/baz tag",
 		},
 	}
 

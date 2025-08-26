@@ -5,11 +5,6 @@ import (
 	"net/http"
 )
 
-// NewRouter returns a new Mux object that implements the Router interface.
-func NewRouter() *Mux {
-	return NewMux()
-}
-
 // Router consisting of the core routing methods used by chi's Mux,
 // using only the standard net/http.
 type Router interface {

@@ -44,13 +44,22 @@ type route struct {
 	varNames      []string
 }
 
-// NewMux returns a newly initialized Mux object that implements the Router
+type Config struct {
+	NotFoundHandler         http.HandlerFunc
+	MethodNotAllowedHandler http.HandlerFunc
+}
+
+// New returns a newly initialized Mux object that implements the Router
 // interface.
-func NewMux() *Mux {
+func New(cfg *Config) *Mux {
 	mux := &Mux{
 		routes: routes{
 			rts: []route{},
 		},
+	}
+	if cfg != nil {
+		mux.notFoundHandler = cfg.NotFoundHandler
+		mux.methodNotAllowedHandler = cfg.MethodNotAllowedHandler
 	}
 	return mux
 }
@@ -82,8 +91,12 @@ func (mx *Mux) Route(pattern string, fn func(Router)) Router {
 
 	// todo: find a way to make this a known type
 	mx.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-		unnamed := r.Context().Value("unnamed").([]string)
-		r = r.WithContext(context.WithValue(r.Context(), "requestpath", unnamed[0]))
+		requestPath := ""
+		unnamed, ok := r.Context().Value("unnamed").([]string)
+		if ok || len(unnamed) > 0 {
+			requestPath = unnamed[len(unnamed)-1]
+		}
+		r = r.WithContext(context.WithValue(r.Context(), "requestpath", requestPath))
 		sr.ServeHTTP(w, r)
 	})
 	return nil
@@ -115,7 +128,7 @@ func (mx *Mux) Method(method, pattern string, handler http.Handler) {
 		regex:         regexp.MustCompile(pattern),
 		methodhandler: map[string]http.Handler{method: handler},
 	}
-	// todo: move this to a method to clean up the logic
+
 	if mx.parent != nil && mx.inline {
 		mx.parent.routes.append(r)
 	} else {
