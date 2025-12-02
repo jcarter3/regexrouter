@@ -116,13 +116,14 @@ func (mx *Mux) HandleFunc(pattern string, handler http.HandlerFunc) {
 }
 
 func (mx *Mux) Method(method, pattern string, handler http.Handler) {
+	handler = mx.chainHandler(handler)
+	
 	for _, rr := range mx.routes.rts {
 		if rr.regex.String() == pattern {
 			rr.methodhandler[method] = handler
 			return
 		}
 	}
-	handler = mx.chainHandler(handler)
 
 	r := route{
 		regex:         regexp.MustCompile(pattern),
