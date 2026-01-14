@@ -22,27 +22,27 @@ type testCase struct {
 func TestMuxBasic(t *testing.T) {
 	m := New(nil)
 
-	m.Get(`^\/$`, func(w http.ResponseWriter, r *http.Request) {
+	m.Get(`^/$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("ok"))
 	})
-	m.Get(`^\/path$`, func(w http.ResponseWriter, r *http.Request) {
+	m.Get(`^/path$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("get path"))
 	})
-	m.Post(`^\/path$`, func(w http.ResponseWriter, r *http.Request) {
+	m.Post(`^/path$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("post path"))
 	})
-	m.Patch(`^\/path$`, func(w http.ResponseWriter, r *http.Request) {
+	m.Patch(`^/path$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("patch path"))
 	})
-	m.Get(`\/(?P<var1>.*)\/(?P<var2>.*)\/path$`, func(w http.ResponseWriter, r *http.Request) {
+	m.Get(`/(?P<var1>.*)/(?P<var2>.*)/path$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte(fmt.Sprintf("%s %s", r.Context().Value("var1"), r.Context().Value("var2"))))
 	})
-	m.HandleFunc(`^\/allmethods$`, func(w http.ResponseWriter, r *http.Request) {
+	m.HandleFunc(`^/allmethods$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("all methods"))
 	})
@@ -109,11 +109,11 @@ func TestMuxBasic(t *testing.T) {
 func TestSubRouters(t *testing.T) {
 	m := New(nil)
 
-	m.Get(`^\/$`, func(w http.ResponseWriter, r *http.Request) {
+	m.Get(`^/$`, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("ok"))
 	})
-	m.Route(`^\/route1/(.*)$`, func(r Router) {
+	m.Route(`^/route1/(.*)$`, func(r Router) {
 		r.Get("^$", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			w.Write([]byte("ok1"))
@@ -123,7 +123,7 @@ func TestSubRouters(t *testing.T) {
 			w.Write([]byte("foo1"))
 		})
 	})
-	m.Route(`^\/route2/(.*)$`, func(r Router) {
+	m.Route(`^/route2/(.*)$`, func(r Router) {
 		r.Get("^$", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			w.Write([]byte("ok2"))
@@ -212,9 +212,9 @@ func TestMiddlewares(t *testing.T) {
 			r = r.WithContext(context.WithValue(r.Context(), "middlewares", v))
 			next.ServeHTTP(w, r)
 		})
-	}).Get(`^\/bar$`, returnMWs(t))
+	}).Get(`^/bar$`, returnMWs(t))
 
-	m.Get(`^\/baz$`, returnMWs(t))
+	m.Get(`^/baz$`, returnMWs(t))
 
 	ts := httptest.NewServer(m)
 	defer ts.Close()
@@ -292,9 +292,9 @@ func TestGrouping(t *testing.T) {
 				next.ServeHTTP(w, r)
 			})
 		})
-		r.Get(`^\/bar$`, returnMWs(t))
+		r.Get(`^/bar$`, returnMWs(t))
 	})
-	m.Get(`^\/$`, returnMWs(t))
+	m.Get(`^/$`, returnMWs(t))
 	ts := httptest.NewServer(m)
 	defer ts.Close()
 
@@ -378,6 +378,60 @@ func TestOCIDistRouting(t *testing.T) {
 	runTestCases(t, ts, testCases)
 }
 
+func returnMWs(t *testing.T) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		v, ok := r.Context().Value("middlewares").([]string)
+		if !ok {
+			t.Fatalf("failed to get middlewares from context")
+		}
+		w.WriteHeader(200)
+		w.Write([]byte(strings.Join(v, " ")))
+	}
+}
+
+func TestRequestPattern(t *testing.T) {
+	m := New(nil)
+
+	m.Get(`^/$`, returnPattern())
+	m.Get(`^/path$`, returnPattern())
+	m.Route(`^/route1/(.*)$`, func(r Router) {
+		r.Get("^$", returnPattern())
+		r.Get(`^foo$`, returnPattern())
+	})
+
+	testCases := []testCase{
+		{
+			name:           "get root",
+			path:           "/",
+			method:         http.MethodGet,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `^/$`,
+		}, {
+			name:           "get path",
+			path:           "/path",
+			method:         http.MethodGet,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `^/path$`,
+		}, {
+			name:           "get route1 foo",
+			path:           "/route1/foo",
+			method:         http.MethodGet,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `^/route1/(.*)$,^foo$`,
+		},
+	}
+	ts := httptest.NewServer(m)
+	defer ts.Close()
+
+	runTestCases(t, ts, testCases)
+}
+
+func returnPattern() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(r.Pattern))
+	}
+}
+
 func runTestCases(t *testing.T, ts *httptest.Server, testCases []testCase) {
 	for _, tc := range testCases {
 		resp, body := testRequest(t, ts, tc.method, tc.path, tc.body)
@@ -411,15 +465,4 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io
 	defer resp.Body.Close()
 
 	return resp, string(respBody)
-}
-
-func returnMWs(t *testing.T) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		v, ok := r.Context().Value("middlewares").([]string)
-		if !ok {
-			t.Fatalf("failed to get middlewares from context")
-		}
-		w.WriteHeader(200)
-		w.Write([]byte(strings.Join(v, " ")))
-	}
 }

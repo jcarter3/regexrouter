@@ -117,7 +117,7 @@ func (mx *Mux) HandleFunc(pattern string, handler http.HandlerFunc) {
 
 func (mx *Mux) Method(method, pattern string, handler http.Handler) {
 	handler = mx.chainHandler(handler)
-	
+
 	for _, rr := range mx.routes.rts {
 		if rr.regex.String() == pattern {
 			rr.methodhandler[method] = handler
@@ -223,7 +223,11 @@ func (mx *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if len(unnamed) > 0 {
 			ctx = context.WithValue(ctx, "unnamed", unnamed)
 		}
-
+		if r.Pattern == "" {
+			r.Pattern = route.regex.String()
+		} else {
+			r.Pattern = r.Pattern + "," + route.regex.String()
+		}
 		handler.ServeHTTP(w, r.WithContext(ctx))
 		return
 	}
