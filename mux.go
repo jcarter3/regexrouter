@@ -223,6 +223,8 @@ func (mx *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if len(unnamed) > 0 {
 			ctx = context.WithValue(ctx, "unnamed", unnamed)
 		}
+		// Store the matched route pattern for metrics/observability
+		ctx = context.WithValue(ctx, "routePattern", route.regex.String())
 
 		handler.ServeHTTP(w, r.WithContext(ctx))
 		return
