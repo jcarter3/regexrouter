@@ -1,4 +1,39 @@
-// Package regexrouter is a mux for Go that uses regex matching for routes
+// Package regexrouter is a mux for Go that matches routes with regular
+// expressions.
+//
+// # Patterns
+//
+// A pattern is a raw Go regular expression (see the regexp/syntax package),
+// matched against the request path with FindStringSubmatch.
+//
+// Patterns are NOT anchored automatically. Because FindStringSubmatch matches
+// anywhere in the path, an unanchored pattern matches any path that merely
+// contains it: the pattern `/users` also matches /api/users-admin/list. Anchor
+// patterns with ^ and $ to match the whole path (`^/users$`) unless a partial
+// match is genuinely intended. Invalid patterns panic at registration; use
+// ValidPattern to check dynamically-built patterns first.
+//
+// Routes are evaluated in registration order and the first pattern that matches
+// wins, so register more specific patterns before broader ones.
+//
+// # Parameters
+//
+// Named capture groups become request parameters, read with URLParam:
+//
+//	m.Get(`^/users/(?P<id>[0-9]+)$`, func(w http.ResponseWriter, r *http.Request) {
+//		id := regexrouter.URLParam(r, "id")
+//		...
+//	})
+//
+// # Sub-routers
+//
+// Route mounts a sub-Router. The optional "subroute" capture group (see
+// SubrouteParam) designates the remaining path the sub-Router matches against;
+// its sub-patterns are matched against that remainder:
+//
+//	m.Route(`^/api/(?P<subroute>.*)$`, func(r regexrouter.Router) {
+//		r.Get(`^widgets$`, ...) // matches GET /api/widgets
+//	})
 package regexrouter
 
 import (
@@ -20,11 +55,10 @@ type Router interface {
 	// path, with a fresh middleware stack for the inline-Router.
 	Group(fn func(r Router)) Router
 
-	// Route mounts a sub-Router along a `pattern`` string.
+	// Route mounts a sub-Router along a `pattern`` string. It is the way to
+	// compose sub-Routers; use a `(?P<subroute>...)` capture group in the
+	// pattern to delegate the remaining path to the sub-Router.
 	Route(pattern string, fn func(r Router)) Router
-
-	// Mount attaches another http.Handler along ./pattern/*
-	Mount(pattern string, h http.Handler)
 
 	// Handle and HandleFunc adds routes for `pattern` that matches
 	// all HTTP methods.
